@@ -135,28 +135,24 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 const addCandidate = asyncHandler(async (req, res) => {
-  const { fullname, email, phoneNumber, position, experience, status } = req.body;
+  const { fullname, email, phoneNumber, position, experience, status } =
+    req.body;
 
-  console.log("body data : ", req.body);
-  
+  console.log('Received body data:', req.body);
+
   if (
     [fullname, email, phoneNumber, position, experience, status].some(
-      (field) => field?.trim() === ''
+      (field) => !field?.trim()
     )
   ) {
     throw new ApiError(400, 'All fields are required!');
   }
 
-  const existingCandidate = Candidate.find({ email });
+  const existingCandidate = await Candidate.findOne({ email }); // **Fixed**
 
-  if (!existingCandidate) {
+  if (existingCandidate) {
     throw new ApiError(400, 'Candidate with this email already exists');
   }
-
-  // const resumeLocalPath = req.file?.path;
-  // if (!resumeLocalPath) {
-  //   throw new ApiError(400, 'Resume is required');
-  // }
 
   const newCandidate = new Candidate({
     fullname: fullname.toLowerCase(),
@@ -164,37 +160,35 @@ const addCandidate = asyncHandler(async (req, res) => {
     phoneNumber,
     position,
     experience,
-    // resume: resume.url,
     status,
   });
 
-  if (!newCandidate) {
-    throw new ApiError(500, 'Something went wrong while creating candidate');
-  }
+  await newCandidate.save();
 
-  console.log("database data : ",newCandidate);
+  console.log('Stored in database:', newCandidate);
 
   return res
-  .status(200)
-  .json(
-    new ApiResponse(
-      200,
-      {newCandidate},
-      "candidate created successfully"
-    )
-  )
-  
+    .status(201)
+    .json(new ApiResponse(201, newCandidate, 'Candidate created successfully'));
 });
 
 const editCandidate = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params; 
-    const { fullName, email, phoneNumber, position, experience, status } = req.body;
+    const { fullname, email, phoneNumber, position, experience, status } = req.body;
+
+    if ([fullname, email, phoneNumber, position, experience, status].some(field => !field?.trim())) {
+      throw new ApiError(400, "All fields are required!");
+    }
+
+    if (!id) {
+      throw new ApiError(400, "Candidate ID is required");
+    }
 
     const updatedCandidate = await Candidate.findByIdAndUpdate(
       id,
-      { fullName, email, phoneNumber, position, experience, status },
-      { new: true, runValidators: true }
+      { fullname, email, phoneNumber, position, experience, status },
+      { new: true, validateBeforeSave: false }
     );
 
     if (!updatedCandidate) {
@@ -202,18 +196,90 @@ const editCandidate = asyncHandler(async (req, res) => {
     }
 
     return res
+      .status(200)
+      .json(new ApiResponse(200, updatedCandidate, "Candidate details updated successfully"));
+  } catch (error) {
+    throw new ApiError(500, error?.message || "Error while updating candidate details");
+  }
+});
+
+const deleteCandidate = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      throw new ApiError(400, 'Candidate ID is required');
+    }
+
+    const deletedCandidate = await Candidate.findByIdAndDelete(id);
+
+    if (!deletedCandidate) {
+      throw new ApiError(404, 'Candidate not found');
+    }
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, 'Candidate deleted successfully'));
+  } catch (error) {
+    throw new ApiError(500, error?.message || 'Error while deleting candidate');
+  }
+});
+
+const filterCandidate = asyncHandler(async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    if (!status) {
+      throw new ApiError(400, 'Status is required for filtering candidates');
+    }
+
+    const validStatuses = [
+      'New',
+      'Scheduled',
+      'Ongoing',
+      'Selected',
+      'Rejected',
+    ];
+    if (!validStatuses.includes(status)) {
+      throw new ApiError(
+        400,
+        'Invalid status. Allowed values: New, Scheduled, Ongoing, Selected, Rejected'
+      );
+    }
+
+    const candidates = await Candidate.find({ status });
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, candidates, 'Candidates filtered successfully')
+      );
+  } catch (error) {
+    throw new ApiError(
+      500,
+      error?.message || 'Error while filtering candidates'
+    );
+  }
+});
+
+const listOfCandidate = asyncHandler(async (req, res) => {
+  const candidates = await Candidate.find();
+  console.log(candidates);
+
+  if (!candidates || candidates.length === 0) {
+    throw new ApiError(404, 'No candidates found');
+  }
+
+  return res
     .status(200)
     .json(
       new ApiResponse(
         200,
-        {updatedCandidate},
-        "Candidate details updated successfully"
+        { candidates },
+        'all cantidate data fetch successfully'
       )
-    )
-  } catch (error) {
-    throw new ApiError(500, error?.message || "Error updating candidate");
-  }
-})
+    );
+});
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
@@ -315,66 +381,6 @@ const updateAccountsDetails = asyncHandler(async (req, res) => {
     );
 });
 
-const updateAvatarImage = asyncHandler(async (req, res) => {
-  const avatarLocalPath = req.file?.path;
-
-  if (!avatarLocalPath) {
-    throw new ApiError(400, 'Avatar image is required');
-  }
-
-  const avatar = await uploadOnCloudinary(avatarLocalPath);
-
-  if (!avatar.url) {
-    throw new ApiError(400, 'Error while upload avatar image');
-  }
-
-  const user = await User.findByIdAndUpdate(
-    req.user?._id,
-    {
-      $set: {
-        avatar: avatar.url,
-      },
-    },
-    {
-      new: true,
-    }
-  ).select('-password');
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, 'avatar image update successfully'));
-});
-
-const updateCoverImage = asyncHandler(async (req, res) => {
-  const coverImageLocalPath = req.file?.path;
-
-  if (!coverImageLocalPath) {
-    throw new ApiError(400, 'Cover image image is required');
-  }
-
-  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
-
-  if (!coverImage.url) {
-    throw new ApiError(400, 'Error while upload cover image');
-  }
-
-  const user = await User.findByIdAndUpdate(
-    req.user?._id,
-    {
-      $set: {
-        coverImage: coverImage.url,
-      },
-    },
-    {
-      new: true,
-    }
-  ).select('-password');
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, 'Cover image update successfully'));
-});
-
 export {
   registerUser,
   loginUser,
@@ -383,8 +389,9 @@ export {
   changeCurrentPassword,
   getCurrentUser,
   updateAccountsDetails,
-  updateAvatarImage,
-  updateCoverImage,
   addCandidate,
-  editCandidate
+  editCandidate,
+  listOfCandidate,
+  deleteCandidate,
+  filterCandidate,
 };
