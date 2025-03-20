@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import Candidate from '../models/candidates.model.js';
 import Employee from '../models/employee.model.js';
 import Attendance from '../models/attendance.model.js';
+import mongoose from 'mongoose';
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -472,6 +473,48 @@ const editAttendance = asyncHandler(async (req, res) => {
   }
 });
 
+const addLeave = asyncHandler(async (req, res) => {
+  try {
+    const { leaveDate, leaveDocument, reason } = req.body;
+    const { id } = req.params; // Employee ID from URL params
+
+    if (!id || !leaveDate || !reason) {
+      throw new ApiError(400, "Employee ID, leave date, and reason are required");
+    }
+
+    // Convert employeeId to ObjectId
+    const employeeObjectId = new mongoose.Types.ObjectId(id);
+
+    // Convert leaveDate to proper format
+    const leaveDateFormatted = new Date(leaveDate).setHours(0, 0, 0, 0);
+
+    // Check if the employee was Present on the selected leave date
+    const attendance = await Attendance.findOne({
+      employeeId: employeeObjectId,
+      status: "Present",
+      date: { $eq: leaveDateFormatted },
+    });
+
+    if (!attendance) {
+      throw new ApiError(400, "Employee must be present on the selected leave date to apply for leave");
+    }
+
+    // Create leave request
+    const leaveRequest = await Leave.create({
+      employeeId: employeeObjectId,
+      fullname: attendance.fullname, // Auto-fill from Attendance
+      designation: attendance.position, // Auto-fill from Attendance
+      leaveDate: leaveDateFormatted,
+      leaveDocument,
+      reason,
+    });
+
+    return res.status(201).json(new ApiResponse(201, leaveRequest, "Leave request submitted successfully"));
+  } catch (error) {
+    throw new ApiError(500, error?.message || "Error submitting leave request");
+  }
+});
+
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
     req.cookies.refreshToken || req.body.refreshToken;
@@ -590,4 +633,5 @@ export {
   deleteEmployee,
   listOfAttendanceEmployees,
   editAttendance,
+  addLeave,
 };
