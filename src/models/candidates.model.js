@@ -26,6 +26,8 @@ const candidateSchema = new mongoose.Schema(
     position: {
       type: String,
       required: true,
+      enum: ["Intern", "Full Time", "Junior", "Senior", "Team Lead"],
+      default: "Intern"
     },
     status: {
       type: String,

@@ -19,8 +19,10 @@ const employeeSchema = new mongoose.Schema(
       match: [/^\d{10}$/, 'Phone must be 10 digits'],
     },
     position: { 
-        type: String, 
-        required: true 
+        type: String,
+        required: true,
+        enum: ["Intern", "Full Time", "Junior", "Senior", "Team Lead"],
+        default: "Intern"   
     },
     department: { 
         type: String, 

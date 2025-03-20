@@ -312,6 +312,64 @@ const listOfEmployee = asyncHandler(async (req, res) => {
     );
 });
 
+const editEmployee = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params; 
+    const { fullname, email, phoneNumber, position, department, experience} =
+    req.body;
+
+  if (
+    [fullname, email, phoneNumber, position, department, experience].some(
+      (field) => !field?.trim
+    )
+  ) {
+    throw new ApiError(400, 'All fields are required!');
+  }
+
+    if (!id) {
+      throw new ApiError(400, "Employee ID is required");
+    }
+
+    const updatedEmployee = await Employee.findByIdAndUpdate(
+      id,
+      { fullname, email, phoneNumber, position, experience, department},
+      { new: true, validateBeforeSave: false }
+    );
+
+    if (!updatedEmployee) {
+      throw new ApiError(404, "Candidate not found");
+    }
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, updatedEmployee, "Employee details updated successfully"));
+  } catch (error) {
+    throw new ApiError(500, error?.message || "Error while updating candidate details");
+  }
+})
+
+const deleteEmployee = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      throw new ApiError(400, 'Employee ID is required');
+    }
+
+    const deletedEmployee = await Employee.findByIdAndDelete(id);
+
+    if (!deletedEmployee) {
+      throw new ApiError(404, 'Employee not found');
+    }
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, 'Employee deleted successfully'));
+  } catch (error) {
+    throw new ApiError(500, error?.message || 'Error while deleting candidate');
+  }
+})
+
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
     req.cookies.refreshToken || req.body.refreshToken;
@@ -425,5 +483,7 @@ export {
   listOfCandidate,
   deleteCandidate,
   filterCandidate,
-  listOfEmployee
+  listOfEmployee,
+  editEmployee,
+  deleteEmployee,
 };
