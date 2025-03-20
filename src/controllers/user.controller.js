@@ -6,6 +6,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import jwt from 'jsonwebtoken';
 import Candidate from '../models/candidates.model.js';
 import Employee from '../models/employee.model.js';
+import Attendance from '../models/attendance.model.js';
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -147,7 +148,7 @@ const addCandidate = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'All fields are required!');
   }
 
-  const existingCandidate = await Candidate.findOne({ email }); // **Fixed**
+  const existingCandidate = await Candidate.findOne({ email });
 
   if (existingCandidate) {
     throw new ApiError(400, 'Candidate with this email already exists');
@@ -164,7 +165,7 @@ const addCandidate = asyncHandler(async (req, res) => {
 
   await newCandidate.save();
 
-  const employeeStatuses = ["New", "Scheduled", "Ongoing", "Selected"];
+  const employeeStatuses = ['New', 'Scheduled', 'Ongoing', 'Selected'];
 
   if (employeeStatuses.includes(status)) {
     const newEmployee = await Employee.create({
@@ -173,12 +174,21 @@ const addCandidate = asyncHandler(async (req, res) => {
       phoneNumber: newCandidate.phoneNumber,
       position: newCandidate.position,
       experience: newCandidate.experience,
-      department: "General", 
+      department: 'General',
       dateOfJoining: new Date(),
     });
-    await newEmployee.save()
-  }
 
+    await Attendance.create({
+      employeeId: newEmployee._id,
+      profileImage: '',
+      fullname: newEmployee.fullname,
+      position: newEmployee.position,
+      department: newEmployee.department,
+      task: '--',
+      status: 'Absent',
+      date: new Date(),
+    });
+  }
 
   return res
     .status(201)
@@ -187,15 +197,20 @@ const addCandidate = asyncHandler(async (req, res) => {
 
 const editCandidate = asyncHandler(async (req, res) => {
   try {
-    const { id } = req.params; 
-    const { fullname, email, phoneNumber, position, experience, status } = req.body;
+    const { id } = req.params;
+    const { fullname, email, phoneNumber, position, experience, status } =
+      req.body;
 
-    if ([fullname, email, phoneNumber, position, experience, status].some(field => !field?.trim())) {
-      throw new ApiError(400, "All fields are required!");
+    if (
+      [fullname, email, phoneNumber, position, experience, status].some(
+        (field) => !field?.trim()
+      )
+    ) {
+      throw new ApiError(400, 'All fields are required!');
     }
 
     if (!id) {
-      throw new ApiError(400, "Candidate ID is required");
+      throw new ApiError(400, 'Candidate ID is required');
     }
 
     const updatedCandidate = await Candidate.findByIdAndUpdate(
@@ -205,14 +220,23 @@ const editCandidate = asyncHandler(async (req, res) => {
     );
 
     if (!updatedCandidate) {
-      throw new ApiError(404, "Candidate not found");
+      throw new ApiError(404, 'Candidate not found');
     }
 
     return res
       .status(200)
-      .json(new ApiResponse(200, updatedCandidate, "Candidate details updated successfully"));
+      .json(
+        new ApiResponse(
+          200,
+          updatedCandidate,
+          'Candidate details updated successfully'
+        )
+      );
   } catch (error) {
-    throw new ApiError(500, error?.message || "Error while updating candidate details");
+    throw new ApiError(
+      500,
+      error?.message || 'Error while updating candidate details'
+    );
   }
 });
 
@@ -312,41 +336,77 @@ const listOfEmployee = asyncHandler(async (req, res) => {
     );
 });
 
-const editEmployee = asyncHandler(async (req, res) => {
+const listOfAttendanceEmployees = asyncHandler(async (req, res) => {
   try {
-    const { id } = req.params; 
-    const { fullname, email, phoneNumber, position, department, experience} =
-    req.body;
+    const attendanceRecords = await Attendance.find()
+      .populate('employeeId', 'profileImage fullName position department')
+      .sort({ date: -1 });
 
-  if (
-    [fullname, email, phoneNumber, position, department, experience].some(
-      (field) => !field?.trim
-    )
-  ) {
-    throw new ApiError(400, 'All fields are required!');
-  }
-
-    if (!id) {
-      throw new ApiError(400, "Employee ID is required");
-    }
-
-    const updatedEmployee = await Employee.findByIdAndUpdate(
-      id,
-      { fullname, email, phoneNumber, position, experience, department},
-      { new: true, validateBeforeSave: false }
-    );
-
-    if (!updatedEmployee) {
-      throw new ApiError(404, "Candidate not found");
+    if (!attendanceRecords || attendanceRecords.length === 0) {
+      throw new ApiError(200, 'No records found');
     }
 
     return res
       .status(200)
-      .json(new ApiResponse(200, updatedEmployee, "Employee details updated successfully"));
+      .json(
+        new ApiResponse(
+          200,
+          attendanceRecords,
+          'Attendance data fetched successfully'
+        )
+      );
   } catch (error) {
-    throw new ApiError(500, error?.message || "Error while updating candidate details");
+    throw new ApiError(
+      500,
+      error?.message || 'Error fetching attendance records'
+    );
   }
-})
+});
+
+const editEmployee = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { fullname, email, phoneNumber, position, department, experience } =
+      req.body;
+
+    if (
+      [fullname, email, phoneNumber, position, department, experience].some(
+        (field) => !field?.trim
+      )
+    ) {
+      throw new ApiError(400, 'All fields are required!');
+    }
+
+    if (!id) {
+      throw new ApiError(400, 'Employee ID is required');
+    }
+
+    const updatedEmployee = await Employee.findByIdAndUpdate(
+      id,
+      { fullname, email, phoneNumber, position, experience, department },
+      { new: true, validateBeforeSave: false }
+    );
+
+    if (!updatedEmployee) {
+      throw new ApiError(404, 'Candidate not found');
+    }
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          updatedEmployee,
+          'Employee details updated successfully'
+        )
+      );
+  } catch (error) {
+    throw new ApiError(
+      500,
+      error?.message || 'Error while updating candidate details'
+    );
+  }
+});
 
 const deleteEmployee = asyncHandler(async (req, res) => {
   try {
@@ -362,13 +422,55 @@ const deleteEmployee = asyncHandler(async (req, res) => {
       throw new ApiError(404, 'Employee not found');
     }
 
+    await Attendance.deleteMany({ employeeId: id });
+
     return res
       .status(200)
       .json(new ApiResponse(200, null, 'Employee deleted successfully'));
   } catch (error) {
     throw new ApiError(500, error?.message || 'Error while deleting candidate');
   }
-})
+});
+
+const editAttendance = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, task } = req.body;
+
+    if (!id) {
+      throw new ApiError(400, 'Attendance ID is required');
+    }
+
+    if (status && !['Present', 'Absent'].includes(status)) {
+      throw new ApiError(
+        400,
+        'Invalid status. Allowed values: Present, Absent'
+      );
+    }
+
+    const updatedAttendance = await Attendance.findByIdAndUpdate(
+      id,
+      { status, task },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedAttendance) {
+      throw new ApiError(404, 'Attendance record not found');
+    }
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          updatedAttendance,
+          'Attendance updated successfully'
+        )
+      );
+  } catch (error) {
+    throw new ApiError(500, error?.message || 'Error updating attendance');
+  }
+});
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
@@ -486,4 +588,6 @@ export {
   listOfEmployee,
   editEmployee,
   deleteEmployee,
+  listOfAttendanceEmployees,
+  editAttendance,
 };
