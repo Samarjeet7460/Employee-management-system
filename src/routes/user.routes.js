@@ -1,21 +1,11 @@
 import { Router } from "express";
 import {loginUser, logoutUser, registerUser, refreshAccessToken, addCandidate, editCandidate, listOfCandidate, getCurrentUser, listOfEmployee, deleteCandidate, filterCandidate, editEmployee, deleteEmployee, listOfAttendanceEmployees, editAttendance, addLeave} from '../controllers/user.controller.js'
-import { upload } from "../middlewares/multer.middleware.js";
+import  upload  from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = Router()
 
-router.route('/register').post( upload.fields([
-    {
-        name: "avatar",
-        maxCount: 1
-    },
-    {
-        name: "coverImage",
-        maxCount: 1
-    }
-]) ,
-registerUser)
+router.route("/add").post(upload.fields([{ name: "resume", maxCount: 1 }, { name: "profileImage", maxCount: 1 }]), addCandidate);
 
 router.route('/login').post(loginUser)
 

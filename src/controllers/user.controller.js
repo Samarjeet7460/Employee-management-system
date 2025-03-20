@@ -138,21 +138,27 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 const addCandidate = asyncHandler(async (req, res) => {
-  const { fullname, email, phoneNumber, position, experience, status } =
-    req.body;
+  const { fullname, email, phoneNumber, position, experience, status } = req.body;
 
-  if (
-    [fullname, email, phoneNumber, position, experience, status].some(
-      (field) => !field?.trim()
-    )
-  ) {
-    throw new ApiError(400, 'All fields are required!');
+  if ([fullname, email, phoneNumber, position, experience, status].some((field) => !field?.trim())) {
+    throw new ApiError(400, "All fields are required!");
   }
 
   const existingCandidate = await Candidate.findOne({ email });
-
   if (existingCandidate) {
-    throw new ApiError(400, 'Candidate with this email already exists');
+    throw new ApiError(400, "Candidate with this email already exists");
+  }
+
+  // Extract uploaded files
+  const resumeFile = req.files?.resume?.[0]?.filename || null;
+  const profileImageFile = req.files?.profileImage?.[0]?.filename || null;
+
+  if (!resumeFile) {
+    throw new ApiError(400, "Resume file is required!");
+  }
+
+  if (!profileImageFile) {
+    throw new ApiError(400, "Profile image is required!");
   }
 
   const newCandidate = new Candidate({
@@ -162,12 +168,13 @@ const addCandidate = asyncHandler(async (req, res) => {
     position,
     experience,
     status,
+    resume: resumeFile, // Store resume filename in DB
+    profileImage: profileImageFile, // Store profile image filename in DB
   });
 
   await newCandidate.save();
 
-  const employeeStatuses = ['New', 'Scheduled', 'Ongoing', 'Selected'];
-
+  const employeeStatuses = ["New", "Scheduled", "Ongoing", "Selected"];
   if (employeeStatuses.includes(status)) {
     const newEmployee = await Employee.create({
       fullname: newCandidate.fullname,
@@ -175,25 +182,23 @@ const addCandidate = asyncHandler(async (req, res) => {
       phoneNumber: newCandidate.phoneNumber,
       position: newCandidate.position,
       experience: newCandidate.experience,
-      department: 'General',
+      department: "General",
       dateOfJoining: new Date(),
     });
 
     await Attendance.create({
       employeeId: newEmployee._id,
-      profileImage: '',
+      profileImage: newCandidate.profileImage, // Store profile image
       fullname: newEmployee.fullname,
       position: newEmployee.position,
       department: newEmployee.department,
-      task: '--',
-      status: 'Absent',
+      task: "--",
+      status: "Absent",
       date: new Date(),
     });
   }
 
-  return res
-    .status(201)
-    .json(new ApiResponse(201, newCandidate, 'Candidate created successfully'));
+  return res.status(201).json(new ApiResponse(201, newCandidate, "Candidate created successfully"));
 });
 
 const editCandidate = asyncHandler(async (req, res) => {

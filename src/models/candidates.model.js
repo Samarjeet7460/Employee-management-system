@@ -27,31 +27,35 @@ const candidateSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: ["Intern", "Full Time", "Junior", "Senior", "Team Lead"],
-      default: "Intern"
+      default: "Intern",
     },
     status: {
       type: String,
-      enum: ["New", "Scheduled", "Ongiong", "Selected", "Rejected"], 
+      enum: ["New", "Scheduled", "Ongoing", "Selected", "Rejected"],
       default: "New",
     },
     experience: {
-      type: Number, 
+      type: Number,
       required: true,
       min: 0,
     },
-    // resume: {
-    //   type: String,
-    //   required: true,
-    // },
+    resume: {
+      type: String,
+      required: true, // Stores resume file name
+    },
+    profileImage: {
+      type: String,
+      required: true, // Stores profile image file name
+    },
   },
   { timestamps: true }
 );
 
-
+// Auto-increment srNo before saving
 candidateSchema.pre("save", async function (next) {
   if (!this.srNo) {
     const lastCandidate = await mongoose
-      .model("Candidate")
+      .model("Candidate", candidateSchema)
       .findOne({}, {}, { sort: { srNo: -1 } });
 
     this.srNo = lastCandidate ? lastCandidate.srNo + 1 : 1;
