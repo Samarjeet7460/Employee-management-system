@@ -5,6 +5,7 @@ import { uploadOnCloudinary } from '../utils/cloudinary.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import jwt from 'jsonwebtoken';
 import Candidate from '../models/candidates.model.js';
+import Employee from '../models/employee.model.js';
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -138,8 +139,6 @@ const addCandidate = asyncHandler(async (req, res) => {
   const { fullname, email, phoneNumber, position, experience, status } =
     req.body;
 
-  console.log('Received body data:', req.body);
-
   if (
     [fullname, email, phoneNumber, position, experience, status].some(
       (field) => !field?.trim()
@@ -165,7 +164,21 @@ const addCandidate = asyncHandler(async (req, res) => {
 
   await newCandidate.save();
 
-  console.log('Stored in database:', newCandidate);
+  const employeeStatuses = ["New", "Scheduled", "Ongoing", "Selected"];
+
+  if (employeeStatuses.includes(status)) {
+    const newEmployee = await Employee.create({
+      fullname: newCandidate.fullname,
+      email: newCandidate.email,
+      phoneNumber: newCandidate.phoneNumber,
+      position: newCandidate.position,
+      experience: newCandidate.experience,
+      department: "General", 
+      dateOfJoining: new Date(),
+    });
+    await newEmployee.save()
+  }
+
 
   return res
     .status(201)
@@ -277,6 +290,24 @@ const listOfCandidate = asyncHandler(async (req, res) => {
         200,
         { candidates },
         'all cantidate data fetch successfully'
+      )
+    );
+});
+
+const listOfEmployee = asyncHandler(async (req, res) => {
+  const employees = await Employee.find();
+
+  if (!employees || employees.length === 0) {
+    throw new ApiError(404, 'No employees found');
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { employees },
+        'all employees data fetch successfully'
       )
     );
 });
@@ -394,4 +425,5 @@ export {
   listOfCandidate,
   deleteCandidate,
   filterCandidate,
+  listOfEmployee
 };

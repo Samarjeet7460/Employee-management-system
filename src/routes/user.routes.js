@@ -1,5 +1,5 @@
 import { Router } from "express";
-import {loginUser, logoutUser, registerUser, refreshAccessToken, addCandidate, editCandidate, listOfCandidate, getCurrentUser, deleteCandidate, filterCandidate} from '../controllers/user.controller.js'
+import {loginUser, logoutUser, registerUser, refreshAccessToken, addCandidate, editCandidate, listOfCandidate, getCurrentUser, listOfEmployee, deleteCandidate, filterCandidate} from '../controllers/user.controller.js'
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
@@ -30,6 +30,8 @@ router.route('/current-user').post(verifyJWT, getCurrentUser)
 router.route("/edit/:id").post(verifyJWT, editCandidate);
 
 router.route('/list').get(verifyJWT, listOfCandidate)
+
+router.route('/list-employees').get(verifyJWT, listOfEmployee)
 
 router.route('/delete/:id').delete(verifyJWT, deleteCandidate)
 

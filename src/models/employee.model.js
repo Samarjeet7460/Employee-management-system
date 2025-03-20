@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const employeeSchema = new mongoose.Schema(
   {
-    fullName: { 
+    fullname: { 
         type: String, 
         required: true, 
         trim: true 
