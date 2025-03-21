@@ -7,6 +7,8 @@ const router = Router()
 
 router.route("/add").post(upload.fields([{ name: "resume", maxCount: 1 }, { name: "profileImage", maxCount: 1 }]), addCandidate);
 
+router.route('/register').post(registerUser)
+
 router.route('/login').post(loginUser)
 
 router.route('/logout').post(verifyJWT, logoutUser)
